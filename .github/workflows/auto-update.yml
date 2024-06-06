@@ -14,20 +14,17 @@ jobs:
         repo: ["mineflayer"]
     steps:
       - run: git clone "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}" "${{ matrix.repo }}"
-      # - uses: actions/checkout@v2
-      #   with:
-      #     repository: "${{ github.repository_owner }}/${{ matrix.repo }}"
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      - run: cd "${{ matrix.repo }}" && pwd
-      - run: pwd
       - name: Merge upstream/master
+        working-directory: ${{ matrix.repo }}
         run: |
           git fetch upstream
           git merge upstream/master
       # if there are merge conflicts error out
       - name: Check for merge conflicts
+        working-directory: ${{ matrix.repo }}
         run: |
           git diff --check
       - name: Push changes
+        working-directory: ${{ matrix.repo }}
         run: |
           git push
