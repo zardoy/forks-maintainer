@@ -2,6 +2,9 @@ on:
   schedule:
     - cron: "0 0 */5 * *"
   workflow_dispatch:
+  push:
+    branches:
+      - main
 # merge upstream/master on these repos of my own: mineflayer (use matrix of repos)
 jobs:
   update-all:
@@ -10,10 +13,12 @@ jobs:
       matrix:
         repo: ["mineflayer"]
     steps:
-      - uses: actions/checkout@v2
-        with:
-          repository: "${{ github.repository_owner }}/${{ matrix.repo }}"
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - run: git clone "${{ github.repository_owner }}/${{ matrix.repo }}" "${{ matrix.repo }}"
+      # - uses: actions/checkout@v2
+      #   with:
+      #     repository: "${{ github.repository_owner }}/${{ matrix.repo }}"
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      - run: cd "${{ matrix.repo }}"
       - name: Merge upstream/master
         run: |
           git fetch upstream
