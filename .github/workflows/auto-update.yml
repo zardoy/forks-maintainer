@@ -1,0 +1,28 @@
+on:
+  schedule:
+    - cron: "0 0 */5 * *"
+  workflow_dispatch:
+# merge upstream/master on these repos of my own: mineflayer (use matrix of repos)
+jobs:
+  update-all:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo: ["mineflayer"]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: "${{ github.repository_owner }}/${{ matrix.repo }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge upstream/master
+        run: |
+          git remote add upstream
+          git fetch upstream
+          git merge upstream/master
+      # if there are merge conflicts error out
+      - name: Check for merge conflicts
+        run: |
+          git diff --check
+      - name: Push changes
+        run: |
+          git push
