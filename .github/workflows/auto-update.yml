@@ -14,6 +14,11 @@ jobs:
         repo: ["mineflayer"]
     steps:
       - run: git clone "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}" "${{ matrix.repo }}"
+      - name: Add upstream remote
+        working-directory: ${{ matrix.repo }}
+        run: |
+          original_repo_url=$(curl -s https://api.github.com/repos/${{ github.repository_owner }}/${{ matrix.repo }} | jq -r .parent.clone_url)
+          git remote add upstream $original_repo_url
       - name: Merge upstream/master
         working-directory: ${{ matrix.repo }}
         run: |
