@@ -11,7 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        repo: ["mineflayer"]
+        # i use these repos because of opened prs
+        repo:
+          [
+            "mineflayer",
+            "prismarine-provider-anvil",
+            "prismarine-chunk",
+            "prismarine-block",
+            "prismarine-world",
+          ]
     steps:
       # configure git
       - name: Set up Git
