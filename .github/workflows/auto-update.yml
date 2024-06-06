@@ -16,7 +16,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Merge upstream/master
         run: |
-          git remote add upstream
           git fetch upstream
           git merge upstream/master
       # if there are merge conflicts error out
