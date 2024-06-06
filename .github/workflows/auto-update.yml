@@ -18,7 +18,8 @@ jobs:
       #   with:
       #     repository: "${{ github.repository_owner }}/${{ matrix.repo }}"
       #     token: ${{ secrets.GITHUB_TOKEN }}
-      - run: cd "${{ matrix.repo }}"
+      - run: cd "${{ matrix.repo }}" && pwd
+      - run: pwd
       - name: Merge upstream/master
         run: |
           git fetch upstream
