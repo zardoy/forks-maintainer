@@ -21,7 +21,7 @@ jobs:
           git config --global credential.helper store
       - name: Store GitHub token
         run: |
-          echo "https://github.com:${{ secrets.GITHUB_TOKEN }}@github.com" > ~/.git-credentials
+          echo "https://github.com:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
       - run: git clone "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}" "${{ matrix.repo }}"
       - name: Add upstream remote
         working-directory: ${{ matrix.repo }}
