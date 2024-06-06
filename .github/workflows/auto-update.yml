@@ -13,7 +13,7 @@ jobs:
       matrix:
         repo: ["mineflayer"]
     steps:
-      - run: git clone "${{ github.repository_owner }}/${{ matrix.repo }}" "${{ matrix.repo }}"
+      - run: git clone "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}" "${{ matrix.repo }}"
       # - uses: actions/checkout@v2
       #   with:
       #     repository: "${{ github.repository_owner }}/${{ matrix.repo }}"
