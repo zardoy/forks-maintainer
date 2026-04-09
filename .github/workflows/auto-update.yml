@@ -1,5 +1,3 @@
-name: Auto-update forks
-
 on:
   schedule:
     - cron: "0 0 */5 * *"
@@ -7,102 +5,48 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "README.md"
-
-permissions:
-  contents: write
-
+# merge upstream/master on these repos of my own: mineflayer (use matrix of repos)
 jobs:
-  sync-and-readme:
+  update-all:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # i use these repos because of opened prs
+        repo:
+          [
+            "mineflayer",
+            "prismarine-provider-anvil",
+            "prismarine-chunk",
+            "prismarine-block",
+            "prismarine-world",
+          ]
     steps:
-      - uses: actions/checkout@v4
-
+      # configure git
       - name: Set up Git
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+          git config --global user.name "github-actions[bot]"s
           git config --global credential.helper store
-
       - name: Store GitHub token
         run: |
           echo "https://github.com:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
-
-      - name: Sync forks (merge upstream)
-        env:
-          OWNER: ${{ github.repository_owner }}
+      - run: git clone "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}" "${{ matrix.repo }}"
+      - name: Add upstream remote
+        working-directory: ${{ matrix.repo }}
         run: |
-          set -euo pipefail
-          while read -r repo; do
-            echo "::group::Sync $repo"
-            cd "$RUNNER_TEMP"
-            rm -rf "$repo"
-            git clone "https://github.com/${OWNER}/${repo}" "$repo"
-            cd "$repo"
-            original_repo_url=$(curl -s "https://api.github.com/repos/${OWNER}/${repo}" | jq -r .parent.clone_url)
-            git remote add upstream "$original_repo_url"
-            git fetch upstream
-            upstream_default=$(git ls-remote --symref upstream HEAD | sed -n 's/^ref: refs\/heads\/\(.*\)/\1/p' | head -1)
-            if [[ -z "$upstream_default" ]]; then
-              echo "Could not determine upstream default branch"
-              exit 1
-            fi
-            git merge "upstream/${upstream_default}"
-            git diff --check
-            git push
-            echo "::endgroup::"
-          done < <(jq -r '.[]' "$GITHUB_WORKSPACE/fork-repos.json")
-
-      - name: Write README with latest synced commits
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          OWNER: ${{ github.repository_owner }}
+          original_repo_url=$(curl -s https://api.github.com/repos/${{ github.repository_owner }}/${{ matrix.repo }} | jq -r .parent.clone_url)
+          git remote add upstream $original_repo_url
+      - name: Merge upstream/master
+        working-directory: ${{ matrix.repo }}
         run: |
-          set -euo pipefail
-          cd "$GITHUB_WORKSPACE"
-          tmp=$(mktemp)
-          while read -r repo; do
-            br=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${OWNER}/${repo}" | jq -r .default_branch)
-            data=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${OWNER}/${repo}/commits/${br}?per_page=1")
-            sha=$(echo "$data" | jq -r '.[0].sha // empty')
-            date=$(echo "$data" | jq -r '.[0].commit.author.date // empty')
-            msg=$(echo "$data" | jq -r '.[0].commit.message // ""' | head -n1)
-            if [[ -z "$sha" || -z "$date" ]]; then
-              echo "WARN: no commit data for ${repo}" >&2
-              continue
-            fi
-            short=$(echo "$sha" | cut -c1-7)
-            printf '%s\t%s\t%s\t%s\t%s\n' "$date" "$repo" "$short" "$msg" "$sha"
-          done < <(jq -r '.[]' fork-repos.json) > "$tmp"
-          sort -r "$tmp" -o "$tmp"
-          {
-            echo "# Forks maintainer"
-            echo ""
-            echo "Latest commit on each fork’s default branch after upstream sync, **newest first** (by commit date)."
-            echo ""
-            echo "| Repository | Commit | Message | Updated (UTC) |"
-            echo "|------------|--------|---------|---------------|"
-            while IFS=$'\t' read -r date repo short msg fullsha; do
-              link="https://github.com/${OWNER}/${repo}/commit/${fullsha}"
-              esc_msg=$(printf '%s' "$msg" | sed 's/|/\\|/g')
-              echo "| [\`${repo}\`](https://github.com/${OWNER}/${repo}) | [\`${short}\`](${link}) | ${esc_msg} | \`${date}\` |"
-            done < "$tmp"
-            echo ""
-            echo "_Updated by GitHub Actions._"
-          } > README.md
-          rm -f "$tmp"
-
-      - name: Push README
+          git fetch upstream
+          git merge upstream/master
+      # if there are merge conflicts error out
+      - name: Check for merge conflicts
+        working-directory: ${{ matrix.repo }}
         run: |
-          set -euo pipefail
-          cd "$GITHUB_WORKSPACE"
-          git add README.md
-          if git diff --staged --quiet; then
-            echo "README unchanged; nothing to push."
-          else
-            git commit -m "chore: update README with latest synced fork commits"
-            git push
-          fi
+          git diff --check
+      - name: Push changes
+        working-directory: ${{ matrix.repo }}
+        run: |
+          git push
