@@ -75,7 +75,7 @@ jobs:
         run: |
           echo "https://github.com:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
 
-      - name: Write README with latest synced commits
+      - name: Write README with latest upstream commits
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           OWNER: ${{ github.repository_owner }}
@@ -84,32 +84,43 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           tmp=$(mktemp)
           while read -r repo; do
+            fork_meta=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${OWNER}/${repo}")
+            parent_full=$(echo "$fork_meta" | jq -r '.parent.full_name // empty')
+            if [[ -z "$parent_full" ]]; then
+              echo "WARN: ${repo} has no GitHub parent (not a fork?); skipping" >&2
+              continue
+            fi
+            parent_owner="${parent_full%%/*}"
+            parent_repo="${parent_full#*/}"
             br=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${OWNER}/${repo}" | jq -r .default_branch)
+              "https://api.github.com/repos/${parent_owner}/${parent_repo}" | jq -r .default_branch)
             data=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${OWNER}/${repo}/commits/${br}?per_page=1")
+              "https://api.github.com/repos/${parent_owner}/${parent_repo}/commits/${br}?per_page=1")
             sha=$(echo "$data" | jq -r '.sha // empty')
             date=$(echo "$data" | jq -r '.commit.author.date // empty')
             msg=$(echo "$data" | jq -r '.commit.message // ""' | head -n1)
             if [[ -z "$sha" || -z "$date" ]]; then
-              echo "WARN: no commit data for ${repo}" >&2
+              echo "WARN: no upstream commit data for ${repo} (${parent_full})" >&2
               continue
             fi
             short=$(echo "$sha" | cut -c1-7)
-            printf '%s\t%s\t%s\t%s\t%s\n' "$date" "$repo" "$short" "$msg" "$sha"
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$date" "$repo" "$parent_owner" "$parent_repo" "$short" "$msg" "$sha"
           done < <(jq -r '.[]' fork-repos.json) > "$tmp"
           sort -r "$tmp" -o "$tmp"
           {
             echo "# Forks maintainer"
             echo ""
-            echo "Latest commit on each fork's default branch, **newest first** (by commit date)."
+            echo "Latest commit on each **upstream** repository's default branch, **newest first** (by commit date)."
             echo ""
-            echo "| Repository | Commit | Message | Updated (UTC) |"
-            echo "|------------|--------|---------|---------------|"
-            while IFS=$'\t' read -r date repo short msg fullsha; do
-              link="https://github.com/${OWNER}/${repo}/commit/${fullsha}"
+            echo "| Fork | Upstream | Commit | Message | Updated (UTC) |"
+            echo "|------|----------|--------|---------|---------------|"
+            while IFS=$'\t' read -r date fork parent_owner parent_repo short msg fullsha; do
+              fork_link="https://github.com/${OWNER}/${fork}"
+              upstream_link="https://github.com/${parent_owner}/${parent_repo}"
+              commit_link="https://github.com/${parent_owner}/${parent_repo}/commit/${fullsha}"
               esc_msg=$(printf '%s' "$msg" | sed 's/|/\\|/g')
-              echo "| [\`${repo}\`](https://github.com/${OWNER}/${repo}) | [\`${short}\`](${link}) | ${esc_msg} | \`${date}\` |"
+              echo "| [\`${fork}\`](${fork_link}) | [\`${parent_owner}/${parent_repo}\`](${upstream_link}) | [\`${short}\`](${commit_link}) | ${esc_msg} | \`${date}\` |"
             done < "$tmp"
             echo ""
             echo "_Updated by GitHub Actions._"
@@ -124,6 +135,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "README unchanged; nothing to push."
           else
-            git commit -m "chore: update README with latest synced fork commits"
+            git commit -m "chore: update README with latest upstream commits"
             git push
           fi
