@@ -88,9 +88,9 @@ jobs:
               "https://api.github.com/repos/${OWNER}/${repo}" | jq -r .default_branch)
             data=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${OWNER}/${repo}/commits/${br}?per_page=1")
-            sha=$(echo "$data" | jq -r '.[0].sha // empty')
-            date=$(echo "$data" | jq -r '.[0].commit.author.date // empty')
-            msg=$(echo "$data" | jq -r '.[0].commit.message // ""' | head -n1)
+            sha=$(echo "$data" | jq -r '.sha // empty')
+            date=$(echo "$data" | jq -r '.commit.author.date // empty')
+            msg=$(echo "$data" | jq -r '.commit.message // ""' | head -n1)
             if [[ -z "$sha" || -z "$date" ]]; then
               echo "WARN: no commit data for ${repo}" >&2
               continue
