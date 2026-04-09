@@ -24,7 +24,7 @@ jobs:
             "prismarine-provider-anvil",
             "prismarine-chunk",
             "prismarine-block",
-            "prismarine-world",
+            # "prismarine-world",
           ]
     steps:
       # configure git
